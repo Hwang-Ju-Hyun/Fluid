@@ -94,8 +94,8 @@ class Fluid
 		/* World Size */
 		float width;
 		float height;
-		int grid_w;
-		int grid_h;
+		int grid_w=0;
+		int grid_h=0;
 
 		/* Coefficients for kernel */
 		float poly6_coef=0.f;

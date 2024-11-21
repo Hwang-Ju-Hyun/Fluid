@@ -11,8 +11,8 @@ Fluid::Fluid()
 
 	width = 0;
 	height = 0;
-	grid_w = 0;
-	grid_h = 0;
+	
+	
 
 	gridindices = NULL;
 	gridoffsets = NULL;
@@ -51,9 +51,8 @@ void Fluid::Create(float w, float h)
 	grid_h = (int)(height / FluidSmoothLen);
 
 	delete[] gridoffsets;
-	gridoffsets = new FluidGridOffset[ grid_w * grid_h ];
+	gridoffsets = new FluidGridOffset[ grid_w * grid_h ];	
 	size = (grid_w * grid_h);
-	
 }
 
 Particle* Fluid::particle_at(std::size_t index)
@@ -129,7 +128,7 @@ void Fluid::UpdateGrid()
 {
 	// Cell size is the smoothing length	
 
-	// Clear the offsets
+	// Clear the offsets	
 	for( int offset = 0; offset < size; offset++ )
 	{
 		gridoffsets[offset].count = 0;
@@ -142,7 +141,7 @@ void Fluid::UpdateGrid()
 		int p_gx = std::min(std::max((int)(particles[particle]->pos.x * (1.0 / FluidSmoothLen)), 0), grid_w - 1);
 		int p_gy = std::min(std::max((int)(particles[particle]->pos.y * (1.0 / FluidSmoothLen)), 0), grid_h - 1);
 		int cell = p_gy * grid_w + p_gx ;
-		gridoffsets[ cell ].count++;
+		gridoffsets[cell].count++;
 	}
 
 	// Prefix sum all of the cells
@@ -160,7 +159,11 @@ void Fluid::UpdateGrid()
 		int p_gx = std::min(std::max((int)(particles[particle]->pos.x * (1.0 / FluidSmoothLen)), 0), grid_w - 1);
 		int p_gy = std::min(std::max((int)(particles[particle]->pos.y * (1.0 / FluidSmoothLen)), 0), grid_h - 1);
 		int cell = p_gy * grid_w + p_gx ;
-		gridindices[ gridoffsets[ cell ].offset + gridoffsets[ cell ].count ] = particle;
+
+		int temp = gridoffsets[cell].offset + gridoffsets[cell].count;
+
+
+		gridindices[temp] = particle;
 		gridoffsets[ cell ].count++;
 	}
 }
@@ -171,63 +174,27 @@ void Fluid::GetNeighbors()
 {
 	// Search radius is the smoothing length
 	float h2 = FluidSmoothLen*FluidSmoothLen;
-
-	num_neighbors = 0;
-	int particle_size = particles.size();
-
-	for( unsigned int P = 0; P < particle_size; P++ )
+	
+	num_neighbors = 0;	
+	int size = Size();
+	unsigned int P = 0;
+	for(; P < size; P++)
 	{		
 		// Find where this particle is in the grid
-		auto temp = particles[P];
-
+		auto& temp = particles[P];
+	
 		int p_gx = std::min((int)(temp->pos.x * (1.0f / FluidSmoothLen)), grid_w - 1);
 		int p_gy = std::min((int)(temp->pos.y * (1.0f / FluidSmoothLen)), grid_h - 1);
-		int cell = p_gy * grid_w + p_gx ;
+		int cell = p_gy * grid_w + p_gx;
 		D3DXVECTOR2 pos_P = temp->pos;
-
+	
 		// For every adjacent grid cell (9 cells total for 2D)
-		for (int d_gy = ((p_gy<1)?0:-1); d_gy <= ((p_gy<grid_h-1)?1:0); d_gy++) 
-		{
-			for (int d_gx = ((p_gx<1)?0:-1); d_gx <= ((p_gx<grid_w-1)?1:0); d_gx++) 
-			{
-				// Neighboring cell
-				int n_cell = cell + d_gy * grid_w + d_gx; 
+		int y_range_first = ((p_gy < 1) ? 0 : -1);
+		int y_range_second = ((p_gy < grid_h - 1) ? 1 : 0);
+		int x_range_first = ((p_gx < 1) ? 0 : -1);
+		int x_range_second = ((p_gx < grid_w - 1) ? 1 : 0);
 
-				// Loop over ever particle in the neighboring cell
-				unsigned int* start = gridindices + gridoffsets[n_cell].offset;
-				unsigned int* end = start + gridoffsets[n_cell].count;
-
-				for ( ; start != end ; ++start) 
-				{
-					unsigned int N = *start;
-					// Only record particle "pairs" once
-					if (P > N) 
-					{
-						auto temp2 = particles[N];
-						// Distance squared
-						D3DXVECTOR2 d = pos_P - temp2->pos;
-						float distsq = d.x * d.x + d.y * d.y;
-
-						// Check that the particle is within the smoothing length
-						if (distsq < h2) 
-						{
-							if ( num_neighbors >= neighbors_capacity ) 
-							{
-								//It's not problem about code speed
-								ExpandNeighbors();
-							}
-							// Record the ID of the two particles
-							// And record the squared distance
-							FluidNeighborRecord& record = neighbors[ num_neighbors ];
-							record.p = P;
-							record.n = N;
-							record.distsq = distsq;
-							num_neighbors++;
-						}
-					}
-				}
-			}
-		}
+		break;		
 	}
 }
 
@@ -244,7 +211,7 @@ void Fluid::ComputeDensity()
 	// foreach neighboring pair of particles
 	for( unsigned int i = 0; i < num_neighbors ; i++ ) 
 	{		
-		auto temp=neighbors[i];
+		auto& temp=neighbors[i];
 		// distance squared
 		float r2 = temp.distsq;
 		
@@ -278,7 +245,7 @@ void Fluid::SqrtDist()
 {
 	for( unsigned int i = 0; i < num_neighbors; i++ ) 
 	{
-		auto temp = neighbors[i];
+		auto& temp = neighbors[i];
 		neighbors[i].distsq = sqrtf(temp.distsq);
 	}
 }
@@ -291,31 +258,33 @@ void Fluid::ComputeForce()
 	// foreach neighboring pair of particles
 	for( unsigned int i = 0; i < num_neighbors; i++ ) 
 	{				
-		auto temp = neighbors[i];
+		auto& temp = neighbors[i];
+		auto& temp_n = temp.n;
+		auto& temp_p = temp.p;
 		// Compute force due to pressure and viscosity
 		float h_r = FluidSmoothLen - temp.distsq;
-		D3DXVECTOR2 diff = particles[temp.n]->pos - particles[temp.p]->pos;
+		D3DXVECTOR2 diff = particles[temp_n]->pos - particles[temp_p]->pos;
 
 		// Forces is dependant upon the average pressure and the inverse distance
 		// Force due to pressure is:
 		// 1/rho_p * 1/rho_n * Pavg * W(h, r)
 		// Where the smoothing kernel is:
 		// The gradient of the "Spikey" kernel
-		D3DXVECTOR2 force = (0.5f * (particles[temp.p]->pressure + particles[temp.n]->pressure)* grad_spiky_coef * h_r / temp.distsq ) * diff;
+		D3DXVECTOR2 force = (0.5f * (particles[temp_p]->pressure + particles[temp_n]->pressure)* grad_spiky_coef * h_r / temp.distsq ) * diff;
 		
 		// Viscosity is based on relative velocity
 		// Viscosity is:
 		// 1/rho_p * 1/rho_n * Vrel * mu * W(h, r)
 		// Where the smoothing kernel is:
 		// The laplacian of the "Viscosity" kernel
-		force += ( (FluidViscosity * lap_vis_coef) * (particles[temp.n]->vel - particles[temp.p]->vel) );
+		force += ( (FluidViscosity * lap_vis_coef) * (particles[temp_n]->vel - particles[temp_p]->vel) );
 		
 		// Throw in the common (h-r) * 1/rho_p * 1/rho_n
-		force *= h_r * 1.0f / (particles[temp.p]->density * particles[temp.n]->density);
+		force *= h_r * 1.0f / (particles[temp_p]->density * particles[temp_n]->density);
 		
 		// Apply force - equal and opposite to both particles
-		particles[temp.p]->acc += FluidWaterMass * force;
-		particles[temp.n]->acc -= FluidWaterMass * force;
+		particles[temp_p]->acc += FluidWaterMass * force;
+		particles[temp_n]->acc -= FluidWaterMass * force;
 	}
 }
 
@@ -361,7 +330,7 @@ void Fluid::Update(float dt )
 	// Create neighbor information
 	UpdateGrid();
 	GetNeighbors();
-	
+	//
 	// Calculate the forces for all of the particles
 	ComputeDensity();
 	SqrtDist();
