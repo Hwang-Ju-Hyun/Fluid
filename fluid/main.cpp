@@ -5,7 +5,6 @@
 #include <windows.h>
 #pragma warning(pop)
 
-
 Fluid * FLUID = NULL;
 
 void InitializeDirectX();
@@ -18,6 +17,8 @@ void CALLBACK OnFrameMove( double /*fTime*/, float /*fElapsedTime*/, void* /*pUs
 	FLUID->Update( FluidTimestep );
 }
 
+//#pragma comment(linker, "/entry:wWinMainCRTStartup /subsystem:console")
+
 // main
 INT WINAPI wWinMain( HINSTANCE, HINSTANCE, LPWSTR, int )
 {
@@ -28,7 +29,7 @@ INT WINAPI wWinMain( HINSTANCE, HINSTANCE, LPWSTR, int )
 //#error This runs really slow in Debug.  Understand?  Comment out this line, then change the next line to 0.2f
 #endif
 	//0.1 or 0.2 in assignment
-	FLUID->Fill( 0.1f );
+	FLUID->Fill( 0.5f );
 
 	InitializeDirectX();
 
